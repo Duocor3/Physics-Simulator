@@ -1,0 +1,471 @@
+<!doctype>
+<html>
+<head>
+<title>Physics Simulator</title>
+</head>
+<style>
+#settings {
+	position: relative;
+	left: 1000px;
+	top: -670px;
+	margin: 10px;
+	padding: 5px;
+	background-color: lightblue;
+	font-family: "Arial";
+	font-style: oblique;
+	border-width: 1px;
+	border-style: solid;
+	border-color: black;
+	width: 300px;
+}
+
+#title {
+	text-align: center;
+	font-size: 30px;
+	font-weight: bold;
+	padding: 1.5px;
+	padding-top: 6px;
+}
+
+p {
+	padding: 1.5px;
+	color: black;
+}
+
+h2 {
+	padding: 1.5px;
+	color: black;
+	font-weight: bold;
+}
+
+h4 {
+	padding: 1.5px;
+	color: black;
+}
+
+#hints {
+	font-weight: bold;
+}
+
+#smallChecks {
+	position: relative;
+	margin-left: 160px;
+	margin-top: -150px;
+}
+
+button {
+	position: relative;
+	left: 70px;
+}
+</style>
+<body>
+<canvas id = "myCanvas" width = "980" height = "617" style = "border: 1px solid black">
+</canvas>
+<br></br><br>
+<div id = "settings">
+<div id = "title">Settings</div>
+<h4>Formulas used:</h4>
+<p>
+<br><img style = "position: relative; left: -90px; top: 60px; width: 500px; height: 150px; margin: -100px;" src = "http://img.sparknotes.com/content/testprep/bookimgs/sat2/physics/0017/x=x0.gif"></img>
+</p><br><br><br><br><br>
+<p id = "smallChecks">Bouncing: 
+<input type = "checkbox" id = "bouncingCheck" checked = "true"></input><br></br>
+No Sliding: 
+<input type = "checkbox" id = "frictionCheck"></input><br></br>
+Hints?: 
+<input type = "checkbox" id = "alertCheck" checked = "true"></input><br></br>
+Wall Bounce: 
+<input type = "checkbox" id = "wallCheck"></input>
+</p><p></p>
+<p id = "hints">Hints found: 0/5</p>
+<p>Projectile Tracing (can cause lag): 
+<input type = "checkbox" id = "tracingCheck" checked = "true"></input>
+</p>
+<p>Projectile Type: 
+<select id = "selectProjectile">
+	<option value = 0.9>Rubber ball</option>
+	<option value = 0.7>Tennis ball</option>
+	<option value = 0.5>Steel ball</option>
+	<option value = 0.3>Copper ball</option>
+</select>
+</p>
+<p>Initial Velocity: 
+<input id = "initialV" value = 2></input>
+</p>
+<p>Angle: 
+<input id = "angle" value = 0></input>
+</p>
+<p>Height: 
+<input id = "height" value = 10></input>
+</p>
+<p>Gravity: 
+<input id = "gravity" value = 9.8></input>
+</p>
+<p>µ Value: 
+<input id = "friction" value = 0.4></input>
+</p>
+<button id = "go" style = "width: 80px; height: 40px; font-size: 20px" onclick = "createObjectOnClick()">Go!</button>
+<button style = "width: 80px; height: 40px; font-size: 20px" onclick = "clearObjects()">Clear</button>
+</div>
+<script>
+// creates a link to the canvas and sets it up so you can draw on it
+var canvas = document.getElementById("myCanvas");
+var ctx = canvas.getContext("2d");
+var allObjectsCreated = [];
+var settings = [[true, false, true, false, 2, 0, 10, 9.8, 0.4, ""]];
+var allowUpdate = false;
+var dist = 0;
+var distanceCalc = [];
+var numPress = -1;
+var hints = 0;
+
+// to make sure no hints repeat
+var hintArray = [false, false, false, false, false];
+	
+// runs the create object function when its clicked (making the green squares)
+// sets a timer for the entire canvas
+canvas.interval = setInterval(updateGame, 20);
+
+// adds the cliff to the simulation
+clearObjects();
+
+// runs the program once
+createObjectOnClick();
+
+// function to add objects to simulation
+function addObject(xpos, ypos, radius, color, bordercolor, i, datemade, grav, xvel, yvel, material, circ, width, height, fric, src) {
+	var yposval = ypos;
+	var yvelocity = yvel;
+	var xposval = xpos;
+	var xvelocity = xvel;
+	var gravity = grav;
+	var bounceTime = 0;
+	var bounceFreq = new Date().getTime();
+	var allPos = [[xposval, yposval]];
+	var an = 0;
+	
+	// sets the object properties to what you wrote in the parameters
+	this.width = width;
+	this.height = height;
+	this.radius = radius;
+	this.friction = friction;
+	
+	var imgObj = new Image();
+	imgObj.src = src;
+	
+	// updates the object every 20 milliseconds
+	this.update = function() {
+		allPos.push([xposval, yposval]);
+
+		// runs every time it touches the ground
+		if (yposval > 600) {
+			// if bouncing is on, reverse the yvelocity and make it smaller
+			// otherwise, set it to zero
+			if (yvelocity >= 0.5) {
+				if (document.getElementById("bouncingCheck").checked) {
+					// reverses the direction of the velocity and makes it smaller
+					yvelocity = -(yvelocity * material);
+					// finds out how often the ball bounces
+					bounceFreq = new Date().getTime() - bounceTime;
+					bounceTime = new Date().getTime();
+				} else {
+					yposval = 600;
+					yvelocity = 0;
+					bounceFreq = 0;
+				}
+				
+			} else {
+				if (i !== 1 && i !== 2) {
+					yposval = 600;
+				}
+			}
+			
+			// to stop that annoying jiggling: if it bounces too frequently, set the yvelocity to zero
+			if (bounceFreq <= 150) {
+				yvelocity = 0;
+			}
+				
+			// if the xvelocity is bigger than 0.05, when it hits the ground, slow it down
+			// if it isn't, just set it to zero
+			if (xvelocity >= 0.05 || xvelocity <= -0.05) {
+				if (bounceFreq <= (150 + (fric*10))){
+					if (!document.getElementById("frictionCheck").checked && (xvelocity > fric * 0.01 || xvelocity < fric * -0.01)) {
+						if (Math.abs(xvelocity) === xvelocity) {
+							xvelocity -= fric * 0.1;
+						} else {
+							xvelocity += fric * 0.1;
+						}
+					} else {
+						xvelocity = 0;
+					}
+				}
+			} else {
+				xvelocity = 0;
+			}
+		}
+		
+		if (i === 1) {
+			yposval = 615;
+			if (document.getElementById("height").value <= 40) {
+				height = -(document.getElementById("height").value * 10) + 10;
+			} else {
+				document.getElementById("height").value = 40;
+			}
+		}
+		
+		// for that sweet, sweet, wallbouncing
+		if (document.getElementById("wallCheck").checked) {
+			document.getElementById("myCanvas").style.border = "2px solid black";
+			document.getElementById("settings").style.top = "-672px";
+
+			if (xposval >= 980 || xposval <= 0) {
+				xvelocity = -xvelocity;
+			}
+		} else {
+			document.getElementById("myCanvas").style.border = "1px solid black";
+			document.getElementById("settings").style.top = "-670px";
+		}
+		
+		// adds the xvelocity to the x position
+		xposval += xvelocity;
+		// adds the gravity for that object to the yvelocity, then adds the yvelocity to the y position
+		yvelocity += gravity;
+		yposval += yvelocity;
+
+		// reduces lag in the projectile tracer (only updates when ball is moving)
+		if (allowUpdate === true && (xvelocity >= 0.05 || (yvelocity >= 0.05 || yvelocity <= -0.05))) {
+			var j;
+			for (j = 0; j <allPos.length; j = j + 3) {
+				ctx.beginPath();
+				ctx.arc(allPos[j][0]+4, allPos[j][1] + 4, 2, 0, 2 * Math.PI);
+				ctx.fillStyle = "black";
+				ctx.fill();
+			}
+		}
+		
+		// checks if it should do the analysis based on if it stopped moving
+		if (circ) {
+			dist = analysis(allPos[allPos.length-1][0], allPos[0][0], allPos[allPos.length-1][1], allPos[0][1], document.getElementById("initialV").value, gravity * 49);
+			ctx.fillStyle = "black";
+
+			ctx.strokeRect(5, 10, 120 + (dist.toString().length * 17), 80);	
+			ctx.clearRect(5, 10, 120 + (dist.toString().length * 17), 80);
+
+			ctx.font = "30px Arial";
+			ctx.fillText(dist + " meters", 10, 80);
+		}
+		
+		// fills in the color and updates things like position each time
+		// renders a circle or a rectangle based on whether it's a projectile or not
+		if (circ === true) {
+			ctx.beginPath();
+			ctx.arc(xposval + 4, yposval + 4, radius, 0, 2 * Math.PI);
+			ctx.fillStyle = color;
+			ctx.fill();
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = bordercolor;
+			ctx.stroke();
+		} else if (circ === false) {
+			ctx.fillStyle = color;
+			ctx.fillRect(xposval, yposval, width, height);
+			ctx.strokeStyle = bordercolor;
+			ctx.strokeRect(xposval, yposval, width, height);
+		} else if (src !== "") {
+
+		} else {
+			var grd = ctx.createLinearGradient(0, 650, 0, 0);
+			grd.addColorStop(1, color);
+			grd.addColorStop(0, bordercolor);
+			ctx.fillStyle = grd;
+			ctx.fillRect(xposval, yposval, width, height);
+		}
+		
+		if (src !== "https://img.playbuzz.com/image/upload/c_crop/v1526838912/gdsrallt5aanwsmn01ji.jpg") {
+			//ctx.drawImage(imgObj, 0, 614);
+			//ctx.drawImage(imgObj, 460, 614);
+			//ctx.drawImage(imgObj, 500, 614);
+		} else {
+			ctx.drawImage(imgObj, 0, 0, 1000, 610);
+		}
+		
+		// adds the force and velocity vectors
+		r =  50;
+		theta = parseInt(document.getElementById("angle").value);
+		var angl = -((theta) * Math.PI)/180;
+		ctx.beginPath();
+		ctx.moveTo(30, (615-(document.getElementById("height").value * 10) + 10));
+		ctx.lineTo(30 + r * Math.cos(angl), (615-(document.getElementById("height").value * 10) + 10) + r * Math.sin(angl));
+		ctx.stroke();
+		
+		ctx.moveTo(30, (615-(document.getElementById("height").value * 10) + 10));
+		ctx.lineTo(80, (615-(document.getElementById("height").value * 10) + 10));
+		ctx.strokeStyle = "black";
+		ctx.stroke();
+		
+		ctx.fillStyle = "black";
+		ctx.font = "30px Arial";
+
+		ctx.strokeRect(5, 10, 120 + (dist.toString().length * 17), 80);	
+		ctx.clearRect(5, 10, 120 + (dist.toString().length * 17), 80);
+		
+		ctx.fillText(dist + " meters", 10, 80);
+		ctx.fillText(document.getElementById("angle").value + "°",10,40);
+	}
+}
+
+// clears it so the objects can be redrawn
+function clearCanvas() {
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// rerouting addObject so it dosen't need parameters when its in the listener
+// gets the values from createObject and starts updating the canvas
+function createObjectOnClick() {
+	// adds a timer for that object and makes it go where the mouse is at the moment
+	var xposObj = 20;
+	var yposObj = 615 - (document.getElementById("height").value * 10);
+
+	// gets what projectile is being shot
+	var p = document.getElementById("selectProjectile");
+	var projectileMaterial = p.options[p.selectedIndex].value;
+	var projectileColor = p.options[p.selectedIndex].innerHTML;
+	var borderColor = "black";
+	
+	// sets the initial velocity to whatever you put in the textbox, and solves for the components
+	var initialVel = parseInt(document.getElementById("initialV").value);
+	var angle = parseInt(document.getElementById("angle").value);
+	var initialVelX = initialVel * Math.sin(((angle+90) * Math.PI)/180);
+	var initialVelY = initialVel * Math.cos(((angle+90) * Math.PI)/180);
+	
+	// gets the value in the gravity textbox
+	var gravityVal = document.getElementById("gravity").value;
+
+	// saves the date made to find out how long it's been alive
+	var dateMade = new Date().getTime();
+	
+	// changes friction each projectile feels on the ground
+	var friction = document.getElementById("friction").value;
+	
+	// checks if the value in the textbox is a number
+	if (isNaN(initialVel) === true || initialVel === 0) {
+		initialVel = 0;
+		document.getElementById("initialV").value = 0;
+	}
+
+	// saves settings you used for comparision later (for the alert boxes)
+	settings.push([document.getElementById("bouncingCheck").checked, document.getElementById("frictionCheck").checked,
+				 document.getElementById("tracingCheck").checked, projectileColor, initialVel, angle,
+				 document.getElementById("height").value, gravityVal, friction]);
+
+	// changes the color of the projectile based on what projectile it is
+	// how...sublime
+	if (projectileColor === "Rubber ball") {
+		projectileColor = "#b30000";
+		borderColor = "#800000";
+	} else if (projectileColor === "Tennis ball") {
+		projectileColor = "#bfff00";
+		borderColor = "#99cc00";
+	} else if (projectileColor === "Steel ball") {
+		projectileColor = "#a6a6a6";
+		borderColor = "#808080";
+	} else {
+		projectileColor = "#d14718";
+		borderColor = "#b73e15";
+	}
+	
+	// turns on and off the projectile tracing
+	if (document.getElementById("tracingCheck").checked) {
+		allowUpdate = true;
+	} else {
+		allowUpdate = false;
+	}
+
+	// for version 2
+	//distanceCalc.push(((initialVelY/gravityVal)+(Math.sqrt((2*(document.getElementById("height").value+((initialVelY*(initialVelY/(gravityVal)))+(-0.5*gravityVal*(Math.pow((initialVelY/gravityVal), 2))) )))/gravityVal))) * initialVelX);
+	//alert(distanceCalc);
+	
+	// the learning experience
+	if (document.getElementById("alertCheck").checked) {
+		if (hintArray[0] === false && (settings[settings.length-1][0] === false && settings[settings.length-1][1] === true) && ((settings[settings.length-1][3] !== settings[settings.length-2][3]) && settings[settings.length-2][3] !== false)) {
+			popup('<p>The distance an object travels is not affected by mass, only initial velocity, gravity value, and angle.</p>', '<p>This does not take into consideration any bouncing, sliding, or air resistance, just the initial projectile path.</p>', "https://www.quora.com/Why-mass-is-independent-of-range-of-projectile");
+			hintArray[0] = true;
+			hints++;
+		} else if (/*hintArray[] === false*/ (settings[settings.length-1][0] === false && settings[settings.length-1][1] === true) && (settings[settings.length-1][4] !== settings[settings.length-2][4])) {
+			if ((settings[settings.length-1][5] !== settings[settings.length-2][5]) && (settings[settings.length-1][6] === settings[settings.length-2][6]) && (settings[settings.length-1][7] === settings[settings.length-2][7]) && (settings[settings.length-1][8] === settings[settings.length-2][8]) /*&& (distanceCalc[distanceCalc.length-1] > distanceCalc[distanceCalc.length-2])*/) {
+				//popup("u got it", "ya", "google.com");
+			}
+		} else if (hintArray[1] === false && settings[settings.length-1][2] && numPress >= 0) {
+			popup('<p>The path a projectile takes is called the trajectory. The trajectory of a projectile resembles a parabola.</p>', '<p>This is because the formula x=x0 + v0t + 0.5at^2 is actually a quadratic equation. You can rearrange it into the ax^2 + bx + c format.</p>', "https://socratic.org/questions/why-is-projectile-motion-parabolic");
+			hintArray[1] = true;
+			hints++;
+		} else if (true) {
+		
+		} else if (true) {
+		
+		}
+		
+		// bad alerts ("learning experience")
+		if (hintArray[2] === false && numPress === 10) {
+			popup('<p>The angle for maximum distance during projectile motion on a cliff is not always 45 degrees.</p>', '<p>The higher the cliff is, the lower the angle has to be for maximum distance.</p>', "https://blog.cupcakephysics.com/classical%20mechanics/2015/04/25/maximum-range-of-a-projectile.html");
+			hintArray[2] = true;
+			hints++;
+		} else if (hintArray[3] === false && numPress === 20) {
+			popup('<p>The only force that acts on the projectile during the flight is gravity. The only time the ball feels another force is the moment it is launched and the moment it hits the ground.</p>', '<p>This excludes drag, of course.</p>', "https://www.quora.com/Which-force-is-acting-on-an-ideal-projectile-during-its-flight");
+			hintArray[3] = true;
+			hints++;
+		}
+	}
+	
+	// adds object that makes the projectile path
+	allObjectsCreated.push(new addObject(xposObj + 8, yposObj, 1, projectileColor, projectileColor, "projectilePath", dateMade, gravityVal/49, initialVelX, initialVelY, projectileMaterial, true, 0, 0, friction, ""));
+	// adds it to the object array (to keep the individuality)
+	allObjectsCreated.push(new addObject(xposObj + 8, yposObj, 8, projectileColor, borderColor, allObjectsCreated.length, dateMade, gravityVal/49, initialVelX, initialVelY, projectileMaterial, true, 0, 0, friction, ""));
+	
+	if (hints <= 5) {
+		document.getElementById("hints").innerHTML = "Hints found: " + hints + "/5";
+	}
+	
+	// for the alerts
+	numPress++;
+}
+
+function analysis(finalposx, initialposx, finalposy, initialposy, velx, grav) {
+	return ((finalposx - initialposx)/21).toFixed(3);
+}
+
+function popup(p1, p2, link) {
+	var newwindow2=window.open('','name','height=240,width=300');
+	var tmp = newwindow2.document;
+	tmp.write('<html><head><title>You learned something new!</title>');
+	tmp.write('<link rel="stylesheet" href="js.css">');
+	tmp.write('</head><body><h4>You learned something new!</h4>');
+	tmp.write(p1);
+	tmp.write(p2);
+	tmp.write('<p><a href= ' + link + '>More info</a></p>');
+	tmp.write('</body></html>');
+	tmp.close();
+}
+
+// updates the game by clearing the canvas and redrawing everything in the
+// allObjectsCreated array
+function updateGame() {
+	clearCanvas();
+
+	// goes through all the objects in the array and adds them to the canvas (dynamic!)
+	var i;
+	for (i = 0; i < allObjectsCreated.length; i++) {
+		allObjectsCreated[i].update();
+	}
+}
+
+// clears all objects from canvas (but keeps the cliff)
+function clearObjects() {
+	allObjectsCreated = [];
+	// sky
+	allObjectsCreated.push(new addObject(0, 0, 0, "#0066ff", "white", allObjectsCreated.length, 0, 0, 0, 0, 0, "bg", 1000, 615, 0, "https://img.playbuzz.com/image/upload/c_crop/v1526838912/gdsrallt5aanwsmn01ji.jpg"));
+	// cliff and ground
+	allObjectsCreated.push(new addObject(0, 625, 0, "grey", "black", allObjectsCreated.length, 0, 0, 0, 0, 0, false, 30, 0, 0, ""));
+	allObjectsCreated.push(new addObject(0, 612, 0, "green", "green", allObjectsCreated.length, 0, 0, 0, 0, 0, false, 1000, 5, 0, "https://slm-assets3.secondlife.com/assets/7342611/lightbox/GrassSamp1.jpg?1363309038"));
+}
+</script>
+</body>
